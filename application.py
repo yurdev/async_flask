@@ -17,6 +17,7 @@ socket_io = SocketIO(app, async_mode=None, logger=False, engineio_logger=False)
 # Random number Generator Thread
 thread = Thread()
 thread_stop_event = Event()
+thread_counter = 0
 
 
 def random_number_generator():
@@ -41,17 +42,26 @@ def index():
 def test_connect():
     # need visibility of the global thread object
     global thread
-    print('Client connected')
+    global thread_counter
+    thread_counter += 1
+    print(f'Clients connected: {thread_counter}')
 
     # Start the random number generator thread only if the thread has not been started before.
     if not thread.isAlive():
         print("Starting Thread")
+        thread_stop_event.clear()
         thread = socket_io.start_background_task(random_number_generator)
 
 
 @socket_io.on('disconnect', namespace='/test')
 def test_disconnect():
-    print('Client disconnected')
+    global thread_counter
+    thread_counter -= 1
+    print(f'Client disconnected, left: {thread_counter}')
+    if thread.is_alive() and thread_counter == 0:
+        global thread_stop_event
+        thread_stop_event.set()
+        print('Disconnected & thread stopped')
 
 
 if __name__ == '__main__':
