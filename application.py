@@ -3,7 +3,7 @@ Demo Flask application to test the operation of Flask with socket.io
 Aim is to create a webpage that is constantly updated with random numbers from a background python process.
 """
 from flask_socketio import SocketIO
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 from random import random
 import threading
 from threading import Thread, Event
@@ -28,7 +28,7 @@ def random_number_generator():
     """
     while not thread_stop_event.isSet():
         number = round(random() * 10, 3)
-        print(f'{number}, thread_ident={threading.get_ident()}')
+        print(f'{number}, thread_ident={threading.get_native_id()}')
         socket_io.emit('new_number', {'number': number}, namespace='/test')
         socket_io.sleep(5)
     print('Thread is done')
@@ -41,12 +41,12 @@ def index():
 
 
 @socket_io.on('connect', namespace='/test')
-def test_connect():
+def client_connect():
     # need visibility of the global thread object
     global thread
     global client_counter
     client_counter += 1
-    print(f'Clients connected: {client_counter}, thread_ident={threading.get_ident()}')
+    print(f'Clients connected: {client_counter}, sid = {request.sid}, thread_ident={threading.get_native_id()}')
 
     if thread_stop_event.is_set():
         thread_stop_event.clear()
@@ -60,10 +60,10 @@ def test_connect():
 
 
 @socket_io.on('disconnect', namespace='/test')
-def test_disconnect():
+def client_disconnect():
     global client_counter
     client_counter -= 1
-    print(f'Client disconnected, left: {client_counter}, thread_ident={threading.get_ident()}')
+    print(f'Client disconnected, left: {client_counter}, sid = {request.sid}, thread_ident={threading.get_ident()}')
     if thread.is_alive() and client_counter == 0:
         global thread_stop_event
         thread_stop_event.set()
